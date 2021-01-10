@@ -1,0 +1,71 @@
+Public Sub ChangeDataType()
+    Dim db As DAO.Database
+    Dim tdf As DAO.TableDef
+    Dim fld As DAO.Field
+    Dim bolPrint As Boolean
+    Dim strFieldList As String
+       
+    
+    Set db = CurrentDb
+    For Each tdf In db.TableDefs
+        bolPrint = False
+        strFieldList = ""
+        Dim arrayFields() As String
+        nbrArraySize = 0
+        bolProcessArray = False
+        strFieldList = "TABLE: " & tdf.Name & " "
+    
+        'System stuff
+        If Not (tdf.Name Like "MSys*" Or tdf.Name Like "~*") Then
+            'If tdf.Name = "Basic" Then
+                For Each fld In tdf.Fields
+                    If fld.Type = 12 Then
+                        strFieldList = strFieldList & "FIELD: " & fld.Name & " "
+                                                
+                        ReDim Preserve arrayFields(nbrArraySize)
+                        arrayFields(nbrArraySize) = fld.Name
+                        nbrArraySize = nbrArraySize + 1
+                        
+                        bolPrint = True
+                    End If
+                Next
+            'End If
+        End If
+        
+        'Process Fields
+        If bolPrint = True Then
+            nbrArraySize = nbrArraySize - 1
+            Debug.Print strFieldList
+            
+            Debug.Print " "
+             
+            For i = 0 To nbrArraySize
+                Debug.Print "arrayFields(" & i & ") : " & arrayFields(i)
+                Dim strFieldName, strTempFieldName  As String
+                strFieldName = arrayFields(i)
+                strTempFieldName = arrayFields(i) & "_wfd"
+
+                'Create New Field
+                Set newfld = tdf.CreateField(strTempFieldName, dbText, 255)
+                newfld.OrdinalPosition = tdf.Fields(strFieldName).OrdinalPosition + 1
+                tdf.Fields.Append newfld
+
+                strSQL = "UPDATE " & tdf.Name & " SET " & strTempFieldName & " = " & strFieldName & " WHERE " & strFieldName & " IS NOT NULL AND " & strFieldName & " <> """" "
+                Debug.Print strSQL
+
+                db.Execute strSQL, dbFailOnError
+
+                tdf.Fields.Delete strFieldName
+                tdf.Fields.Refresh
+
+                tdf.Fields(strTempFieldName).Name = strFieldName
+                tdf.Fields.Refresh
+            Next i
+        End If
+    Next
+    
+    Set fld = Nothing
+    Set tdf = Nothing
+    Set db = Nothing
+
+End Sub
